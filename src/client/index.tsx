@@ -30,8 +30,8 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
 /** Node half 只读活动 loop 路由（与 examples/loop/index.mjs 的 LOOPS_PATH 一致）。 */
 const LOOPS_PATH = '/plugins/dsh-loop/loops'
 
-/** 轮询间隔：状态条不需要亚秒刷新。 */
-const POLL_MS = 1000
+/** 轮询间隔：状态条不需要亚秒刷新；60s 足够新（倒计时本地重算，不依赖轮询）。 */
+const POLL_MS = 60_000
 
 const NS = 'loop'
 const zh = {
