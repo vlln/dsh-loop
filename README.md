@@ -6,8 +6,8 @@
 
 <p align="center">
   <img src="https://badgen.net/badge/license/MIT/green" alt="license">
-  [![dshfind](https://dshfind.com/api/badge/vlln/dsh-loop)](https://dshfind.com/en/plugins/vlln/dsh-loop?ref=badge)
-  [![dsh.so security](https://www.dsh.so/badge/dsh-loop.svg)](https://www.dsh.so/artifact/dsh-loop)
+  <a href="https://dshfind.com/en/plugins/vlln/dsh-loop?ref=badge"><img src="https://dshfind.com/api/badge/vlln/dsh-loop" alt="dshfind" /></a>
+  <a href="https://www.dsh.so/artifact/dsh-loop"><img src="https://www.dsh.so/badge/dsh-loop.svg" alt="dsh.so security" /></a>
 </p>
 
 Delivers a prompt to the current agent at a fixed interval — ideal for polling, PR babysitting, and build-fix-test cycles. Aligned with Claude Code's `/loop` semantics, **multiple loops can run concurrently in a single session**. Delivered as an official **bundle plugin** (`dsh.bundle` + dshClient channel), 0 patch.
