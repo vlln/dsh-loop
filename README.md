@@ -38,6 +38,18 @@ Delivers a prompt to the current agent at a fixed interval — ideal for polling
 |---|---|
 | Active status bar | Single loop: `● ⟳ looping · <prompt> · 5m · next in 23s`; multiple loops collapse into a count bar "N loops running · expand", click to expand the list |
 
+## Settings
+
+The plugin ships a settings card in **Settings → Plugins** (official `ctx.settings` namespace `dsh-loop`, rendered via the `settings.plugin.item` slot next to the official plugin cards). **Each tool gets its own row with an official-looking Switch:**
+
+| Setting | Default | Effect |
+|---|---|---|
+| Whether to **inject** the `loop` tool into the model | on | When off, the `loop` tool is **not registered** for agents: the model can no longer see or call it (`tools.schemas` has no `loop`). The `/loop` command (user side) and the status bar are unaffected. |
+
+The card fields are driven by the client `LOOP_TOOL_FIELDS` table, mirrored one-to-one by the Node-side tool definition table — adding a tool means adding one entry on each side, and the settings card grows a new switch row automatically.
+
+Changes apply as soon as you **save** (`applies: 'live'`) — the plugin watches the namespace and registers/unregisters the affected tools on the fly, so new sessions pick it up without a restart. Tool schemas are resolved live at every session/prompt assembly (there is no per-session snapshot): in-flight sessions also see the change from their next turn, and turning a tool off drops it from `tools.schemas` immediately, so a model that called it earlier can no longer reach it (they can only reconcile that through the turn record). The `/loop` command (user side) and the status bar are unaffected.
+
 ## Installation
 
 **Recommended: one-line install from a git source** (build artifacts are committed, so a git source does not trigger a build):

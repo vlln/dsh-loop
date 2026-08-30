@@ -1,7 +1,7 @@
 {
   "name": "@vlln/dsh-loop",
-  "description": "定时循环插件：/loop 命令 + loop 工具 + 活动状态条（官方 dock 槽）",
-  "version": "0.3.1",
+  "description": "定时循环插件：/loop 命令 + loop 工具 + 活动状态条（官方 dock 槽）+ 设置页（工具暴露开关）",
+  "version": "0.4.0",
   "type": "module",
   "main": "lib/index.mjs",
   "files": [
@@ -36,6 +36,8 @@
   "peerDependencies": {
     "@deepseek-ai/cordis": "^4.0.1",
     "@deepseek-ai/dsh-llm": "^0.1.0-rc.6",
+    "@deepseek-ai/dsh-settings": "^0.1.0-rc.5",
+    "@deepseek-ai/schemastery": "^3.18.1",
     "@deepseek-ai/dsh-tools": "^0.1.0-rc.6",
     "react": "^18.2.0"
   },
