@@ -139,6 +139,10 @@ export default {
       const state = loops.get(loopId)
       if (state === undefined) return false
       state.dispose()
+      if (state.catchUpTimer !== undefined) {
+        clearTimeout(state.catchUpTimer)
+        state.catchUpTimer = undefined
+      }
       loops.delete(loopId)
       return true
     }
@@ -168,19 +172,52 @@ export default {
         prompt,
         intervalMs,
         lastDeliveredAt: undefined,
+        createdAt: Date.now(),
+        pendingCatchUp: false,
+        catchUpTimer: undefined,
         dispose: undefined,
       }
-      // 每 tick：agent 已销毁则停止；忙则跳过本轮（不堆积 inbox）；
-      // 空闲则 followup 投递 prompt。setInterval 语义是首个 tick 要等
-      // 一个完整间隔，所以启动时立即补投第一轮（对齐 Claude Code /loop
-      // "立即开始 + 周期重复"），之后由 interval 周期投递。
+      // 饿死修复：忙 tick 吞掉一整个 interval（overdue）后，安排短周期
+      // 一次性补投定时器（min(60s, intervalMs/4)）——触发时若 idle 立即
+      // 补投一次并清标志；若仍忙则续期重试。投递后恢复正常 interval 节奏。
+      const armCatchUp = () => {
+        if (state.catchUpTimer !== undefined) return
+        const delay = Math.max(1000, Math.min(60000, Math.floor(intervalMs / 4)))
+        state.catchUpTimer = setTimeout(() => {
+          state.catchUpTimer = undefined
+          if (ctx.agents.get(agent.id) !== agent) return
+          if (agent.status === 'idle') {
+            state.pendingCatchUp = false
+            state.lastDeliveredAt = Date.now()
+            agent.followup(createUserMessage({
+              content: [{ type: 'text', text: state.prompt }],
+              source: { kind: 'plugin', plugin: PLUGIN_ID },
+            }))
+          } else {
+            armCatchUp()
+          }
+        }, delay)
+      }
+      // 每 tick：agent 已销毁则停止；忙且 overdue 时标记待补投并武装短周期
+      // 补投定时器；空闲则 followup 投递 prompt。setInterval 语义是首个
+      // tick 要等一个完整间隔，所以启动时立即补投第一轮（对齐 Claude
+      // Code /loop "立即开始 + 周期重复"），之后由 interval 周期投递。
       const deliver = () => {
         if (ctx.agents.get(agent.id) !== agent) {
           stopLoop(id)
           return
         }
-        if (agent.status !== 'idle') return
+        if (agent.status !== 'idle') {
+          const last = state.lastDeliveredAt ?? state.createdAt
+          if (Date.now() - last >= intervalMs) armCatchUp()
+          return
+        }
+        state.pendingCatchUp = false
         state.lastDeliveredAt = Date.now()
+        if (state.catchUpTimer !== undefined) {
+          clearTimeout(state.catchUpTimer)
+          state.catchUpTimer = undefined
+        }
         agent.followup(createUserMessage({
           content: [{ type: 'text', text: state.prompt }],
           source: { kind: 'plugin', plugin: PLUGIN_ID },
