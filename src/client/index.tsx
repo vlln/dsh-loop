@@ -22,9 +22,10 @@
 // 由 Node half 导出的 Config schema 声明）。旧 settingsScope /
 // settings.plugin.item 缝已退役，本插件不再引用。
 //
-// `/loop` 菜单行图标经 `commandUi.candidates` 出口贴面（见 installCommandRowFace）：
-// 官方只给六个一等公民宿主命令配了行外观，第三方宿主命令没有注册入口，同名客户端
-// 贡献会 fail loud。贴面只重写本插件那一行，上游改动时自动降级为官方回退外观。
+// `/loop` 菜单行的**图标 + 本地化标题**经 `commandUi.candidates` 出口贴面（见
+// installCommandRowFace）：官方只给六个一等公民宿主命令配了行外观，第三方宿主命令
+// 没有注册入口，同名客户端贡献会 fail loud。贴面只重写本插件那一行，上游改动时
+// 自动降级为官方回退外观（裸名字 + 宿主 description，无图标）。
 import { useCallback, useEffect, useState } from 'react'
 import type { Context } from '@deepseek-ai/cordis'
 import type { CSSProperties, ReactNode } from 'react'
@@ -99,6 +100,7 @@ const zh = {
   'open': '展开',
   'close': '收起',
   'stop': '停止循环',
+  'cmd.label': '循环',
 } satisfies Record<string, string>
 /** Loop namespace key union. */
 type LoopKey = keyof typeof zh
@@ -109,6 +111,7 @@ const en = {
   'open': 'Expand',
   'close': 'Collapse',
   'stop': 'Stop loop',
+  'cmd.label': 'Loop',
 } satisfies Record<string, string>
 
 /**
@@ -813,7 +816,14 @@ export function LoopSettingsCard(
 const COMMAND_NAME = 'loop'
 
 /** 候选行里本插件要重写的字段（其余字段原样透传）。 */
-interface CommandRow { readonly name?: string; readonly icon?: unknown }
+interface CommandRow {
+  readonly name?: string
+  readonly label?: string
+  readonly icon?: unknown
+}
+
+/** 菜单行标题的取值面：`ctx.locale.bind(NS)` 每次候选合成现取当前语言。 */
+type RowLabel = (key: 'cmd.label') => string
 
 /**
  * 候选合成出口的最小面：`ui-commands` 把 `/` 源注册成
@@ -825,29 +835,39 @@ interface CommandUiRowFace {
 }
 
 /**
- * 给本插件的**宿主命令**行贴图标；返回还原函数。
+ * 给本插件的**宿主命令**行贴图标 + 本地化标题；返回还原函数。
  *
  * 为什么需要这一步：官方把宿主命令行在 `/` 菜单里的外观（label / description /
  * icon）锁在 `dsh-client-ui-commands` 的 `presentation.ts`——一张硬编码的一等公民
  * 表 `HOST_FACES`，只列 goal / plan / feedback / compact / permission / export
- * 六个，按 `definitionId` 命中；`CommandDescriptor` 本身没有图标字段。第三方宿主
- * 命令没有官方入口拿这枚图标：同名注册客户端贡献会在候选合成阶段 fail loud
+ * 六个，按 `definitionId` 命中；`CommandDescriptor` 本身没有 label / icon 字段。
+ * 第三方宿主命令没有官方入口拿这两项：同名注册客户端贡献会在候选合成阶段 fail loud
  * （`contribution /loop collides with a host command`，整组「指令」一起消失），
  * `commandUi.decorate` 只换裸调用行为、不换行外观。
  *
- * 所以这里只在候选合成出口包一层，**只重写本插件那一行**：不碰命令目录、不碰派发、
- * 不碰命令生命周期，不新增命令、不写 DOM、不引 timer。前提任一不成立（服务缺席、
- * 上游把 `candidates` 改名或私有化、导出不是函数）就返回空还原器——包装不生效，
- * 该行自动回落到官方回退外观（name + 宿主 description），功能不受影响。
+ * 补 `label` 的理由：宿主行合成时只带 name + description（+ input.hint），菜单标题
+ * 按 `label ?? name` 回退，所以裸名 `loop` 会直接显示。注意贴面发生在 `candidates`
+ * 输出上，而 `rankByName` 在服务内部、贴面之前就跑完了——所以这里补的 label 只修
+ * 显示，不会让 `/循环` 命中 `/loop`；本地化搜索只属于客户端自有命令/源。
+ * description 由 Node half 随 `?lang=` 重注册，不在客户端重抄；hint 是 claim 态
+ * ghost text，不在菜单行渲染；section 由 sectionRows 统一加「指令」，这里不要写。
+ *
+ * 只在候选合成出口包一层，**只重写本插件那一行**：不碰命令目录、不碰派发、不碰
+ * 命令生命周期，不新增命令、不写 DOM、不引 timer。前提任一不成立（服务缺席、上游把
+ * `candidates` 改名或私有化、导出不是函数）就返回空还原器——包装不生效，该行自动
+ * 回落到官方回退外观（name + 宿主 description，无图标），功能不受影响。
  */
-function installCommandRowFace(commandUi: unknown): () => void {
+function installCommandRowFace(commandUi: unknown, t: RowLabel): () => void {
   const runtime = commandUi as CommandUiRowFace | undefined
   const original = runtime?.candidates
   if (runtime === undefined || typeof original !== 'function') return () => {}
   const face = async (session: unknown, req: unknown): Promise<readonly CommandRow[]> => {
     const rows = await original.call(runtime, session, req)
-    // 只改自己那一行；官方行与其他插件的行保持原内容不变。
-    return rows.map(row => (row?.name === COMMAND_NAME ? { ...row, icon: IconRefreshOutlineRegular } : row))
+    // 只改自己那一行；官方行与其他插件的行保持原内容不变。label 每次候选合成
+    // 现取，切界面语言后下一次打开菜单即生效。
+    return rows.map(row => (row?.name === COMMAND_NAME
+      ? { ...row, label: t('cmd.label'), icon: IconRefreshOutlineRegular }
+      : row))
   }
   runtime.candidates = face
   return () => {
@@ -861,6 +881,9 @@ export const inject = ['slots', 'locale', 'configForms']
 export function apply(ctx: Context): void {
   ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'loop: dictionaries')
   ctx.effect(() => ctx.locale.register(settingsNS, { zh: zhSettings, en: enSettings }), 'loop: settings dictionaries')
+  // 菜单行标题的翻译器：bind 返回稳定引用，调用时读当前 active，所以候选合成里
+  // 现取即可跟随语言切换（与组件内的 props.t 同一份字典）。
+  const t = ctx.locale.bind(NS)
   // 语言回传：把 ctx.locale 的当前 active 记进回传源（见 relayLanguage）。语言翻转时
   // 通知已挂载的轮询就地重发一次，Node half 的用户可见文案随之下一次回执即切语言。
   ctx.effect(() => {
@@ -908,12 +931,12 @@ export function apply(ctx: Context): void {
         }),
       }, LoopSettingsCard))), 'loop: settings card')
 
-  // `/loop` 在 `/` 菜单里的行外观（图标）。宿主命令没有官方图标入口，只能在候选
-  // 合成出口贴面（理由与降级契约见 installCommandRowFace）。走嵌套
+  // `/loop` 在 `/` 菜单里的行外观（图标 + 本地化标题）。宿主命令没有官方行外观
+  // 入口，只能在候选合成出口贴面（理由与降级契约见 installCommandRowFace）。走嵌套
   // `ctx.inject`：没有命令目录的 composition（服务缺席）里这段代码永不执行。
   ctx.inject(['commandUi'], (commandScope) => {
     commandScope.effect(
-      () => installCommandRowFace(commandScope.get('commandUi')),
+      () => installCommandRowFace(commandScope.get('commandUi'), t),
       'loop: command row face',
     )
   })

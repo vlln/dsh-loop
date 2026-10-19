@@ -30,14 +30,14 @@
 | `/loop list` | 列出当前会话全部循环（含 id） |
 | `/loop stop <id>` / `/loop stop` | 停指定循环 / 停全部 |
 
-`/loop` 的回执（命令面板里的描述、`list` / 用法 / stop 输出）跟随**界面语言**：client half 把当前 locale 回传给插件，中英文按界面切换；没有客户端在场的 headless 运行保持英文。
+`/loop` 的回执（命令面板里的标题/描述、`list` / 用法 / stop 输出）跟随**界面语言**：client half 把当前 locale 回传给插件，中英文按界面切换；没有客户端在场的 headless 运行保持英文。
 
 **UI**（对话页输入框上方 dock 槽）：
 
 | 功能 | 说明 |
 |---|---|
 | 活动状态条 | 单循环：`● ⟳ 循环中 · <prompt> · 5m · 下次 23s`；多循环折叠为计数条「N 个循环运行中 · 展开」，点击展开列表 |
-| `/` 菜单行图标 | 在输入框敲 `/` 时，`/loop` 那一行左侧带 ⟳ 图标（与其他命令行同一位置、同一尺寸） |
+| `/` 菜单行外观 | 在输入框敲 `/` 时，`/loop` 那一行左侧带 ⟳ 图标（与其他命令行同一位置、同一尺寸），标题显示本地化「循环」/「Loop」 |
 
 ## 设置
 
@@ -57,7 +57,7 @@
 
 ```sh
 dsh plugin --profile web add "github:vlln/dsh-loop#main"   # git 源一行（构建产物已入库）
-# 或 npm 源：dsh plugin --profile web add @vlln/dsh-loop@0.4.2
+# 或 npm 源：dsh plugin --profile web add @vlln/dsh-loop@0.4.3
 ```
 
 或本地目录（有源码时）：`git clone` 后 `cd dsh-loop && dsh plugin --profile web add .`。
@@ -69,7 +69,7 @@ dsh plugin --profile web add "github:vlln/dsh-loop#main"   # git 源一行（构
 | dsh 版本 | 状态 |
 |---|---|
 | `0.2.0-rc.2` | ✅ 已验证（2026-10-03 按 0.2.0 迁移对齐；2026-10-15 复核命令面） |
-| 其他版本 | ⚠️ 未验证——升级 dsh 后若 `/loop` 菜单行**少了图标**（命令本身仍可用），是上游改了客户端命令面的内部方法，插件会自动降级成官方回退外观 |
+| 其他版本 | ⚠️ 未验证——升级 dsh 后若 `/loop` 菜单行**少了图标与本地化标题**（命令本身仍可用），是上游改了客户端命令面的内部方法，插件会自动降级成官方回退外观 |
 
 ## 使用
 

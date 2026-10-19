@@ -1,7 +1,7 @@
 {
   "name": "@vlln/dsh-loop",
   "description": "定时循环插件：/loop 命令 + loop 工具 + 活动状态条（官方 dock 槽）+ 设置页（工具暴露开关）",
-  "version": "0.4.2",
+  "version": "0.4.3",
   "type": "module",
   "main": "lib/index.mjs",
   "files": [
