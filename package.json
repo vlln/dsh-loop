@@ -1,12 +1,14 @@
 {
   "name": "@vlln/dsh-loop",
   "description": "定时循环插件：/loop 命令 + loop 工具 + 活动状态条（官方 dock 槽）+ 设置页（工具暴露开关）",
-  "version": "0.4.3",
+  "version": "0.4.4",
   "type": "module",
   "main": "lib/index.mjs",
+  "icon": "./icon.svg",
   "files": [
     "lib",
     "cordis.patch.yml",
+    "icon.svg",
     "README.zh.md"
   ],
   "publishConfig": {
