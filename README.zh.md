@@ -53,11 +53,11 @@
 
 ## 安装
 
-**推荐：git 源一行安装**（构建产物已入库，git 源不触发构建）：
+**推荐：npm 源一行安装**（构建产物随包发布，不触发构建）：
 
 ```sh
-dsh plugin --profile web add "github:vlln/dsh-loop#main"   # git 源一行（构建产物已入库）
-# 或 npm 源：dsh plugin --profile web add @vlln/dsh-loop@0.4.3
+dsh plugin --profile web add @vlln/dsh-loop
+# 想跟最新提交而不是发布版：dsh plugin --profile web add "github:vlln/dsh-loop#main"
 ```
 
 或本地目录（有源码时）：`git clone` 后 `cd dsh-loop && dsh plugin --profile web add .`。

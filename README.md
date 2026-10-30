@@ -55,11 +55,11 @@ Changes apply as soon as you **save** (the schema's leaves are marked `.volatile
 
 ## Installation
 
-**Recommended: one-line install from a git source** (build artifacts are committed, so a git source does not trigger a build):
+**Recommended: one-line install from npm** (build artifacts ship in the package, no build triggered):
 
 ```sh
-dsh plugin --profile web add "github:vlln/dsh-loop#main"   # one-line git source (build artifacts committed)
-# or npm source: dsh plugin --profile web add @vlln/dsh-loop@0.4.3
+dsh plugin --profile web add @vlln/dsh-loop
+# to track the latest commit instead: dsh plugin --profile web add "github:vlln/dsh-loop#main"
 ```
 
 Or from a local directory (when you have the source): `git clone`, then `cd dsh-loop && dsh plugin --profile web add .`.
