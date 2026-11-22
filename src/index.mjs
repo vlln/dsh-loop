@@ -373,20 +373,26 @@ export function apply(ctx, config) {
       function armNext() {
         clearTimer()
         const at = (state.lastDeliveredAt ?? Date.now()) + state.intervalMs
-        state.timer = ctx.timeout(() => {
+        /** 网格到点：空闲则派发；忙则挂起，并排一次兜底检查。 */
+        function check() {
           state.timer = undefined
           if (ctx.agents.get(agent.id) !== agent) {
             stopLoop(id)
             return
           }
-          // 忙 = 本轮任务到点还没跑完：挂起本轮（不入队、不连发），
-          // 等 agent/status 回到 idle 时立刻补投一次。
+          // 忙 = 本轮任务到点还没跑完：挂起本轮（不入队、不连发）。
+          // 正常路径由 agent/status 监听器在 idle 时立即补投；这里再排一次
+          // 兜底检查，事件万一漏掉也不会让循环永久冻结。不会连发：补投只有
+          // dispatch 一条出口，且 dispatch 会重排网格。
           if (agent.status !== 'idle') {
             state.pending = true
+            state.timer = ctx.timeout(check, state.intervalMs)
             return
           }
           dispatch()
-        }, Math.max(0, at - Date.now()))
+        }
+
+        state.timer = ctx.timeout(check, Math.max(0, at - Date.now()))
       }
 
       function clearTimer() {

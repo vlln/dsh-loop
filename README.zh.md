@@ -92,6 +92,8 @@ loop action=stop loop_id="loop-2"
 
 到点时 agent 仍在跑（本轮耗时超过间隔），该 tick 被**挂起**：本轮一结束立刻**补投一次**。错过的多个 tick 不会连发——间隔 10 分钟、单轮跑了 30 分钟，结束时刻只触发一次，之后按新相位继续。agent 忙时不做任何派发。
 
+补投依赖 agent 的 `agent/status` 回到 idle。若该事件意外丢失，挂起后的下一次兜底检查（一个间隔后）仍会补投，因此循环不会永久冻结——代价是最多晚一个间隔。
+
 状态条倒计时读 `nextTickAt = lastDeliveredAt + intervalMs`，因此单轮超时期间显示 "now"（挂起的那一轮确实已到期）。
 
 循环活在当前 harness 进程，随进程退出消失（不跨重启持久化，与 Claude Code `/loop` 一致）。
