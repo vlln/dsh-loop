@@ -3,6 +3,10 @@
 // 同机制）。对齐 Claude Code 的 /loop 语义：固定间隔 / 自调节（模型每轮
 // 可用工具调整或停止）/ 内置维护 prompt。
 //
+// 派发节奏：下一轮排在「上次派发 + interval」的网格上，任务耗时不会让网格
+// 漂移；到点时 agent 仍在跑（本轮任务超过了 interval）则该轮挂起，等本轮
+// 结束立刻派发一次——只补一次，不按错过的 tick 数连发。
+//
 // 边界：会话作用域——循环活在当前 harness 进程，随进程退出消失，不跨重启
 // 持久化（与 Claude Code /loop 一致）。client half 经 conversation.input.dock
 // 槽显示活动 loop 状态条（与官方 goal / task-status 同一 dock 家族），数据
@@ -342,32 +346,78 @@ export function apply(ctx, config) {
         prompt,
         intervalMs,
         lastDeliveredAt: undefined,
+        // 网格 tick 撞上 agent 忙（本轮任务耗时超过 interval）时置位：
+        // agent 一回到 idle 立刻补投一次；只补一次，错过的多个 tick 不连发。
+        pending: false,
+        timer: undefined,
+        deliver: undefined,
         dispose: undefined,
       }
-      // 每 tick：agent 已销毁则停止；忙则跳过本轮（不堆积 inbox）；
-      // 空闲则 followup 投递 prompt。setInterval 语义是首个 tick 要等
-      // 一个完整间隔，所以启动时立即补投第一轮（对齐 Claude Code /loop
-      // "立即开始 + 周期重复"），之后由 interval 周期投递。
-      const deliver = () => {
-        if (ctx.agents.get(agent.id) !== agent) {
-          stopLoop(id)
-          return
-        }
-        if (agent.status !== 'idle') return
+
+      /** 投递一轮，并把下一次网格 tick 重排到「本次派发 + interval」。 */
+      function dispatch() {
+        state.pending = false
         state.lastDeliveredAt = Date.now()
         agent.followup(createUserMessage({
           content: [{ type: 'text', text: state.prompt }],
           source: { kind: LOOP_SOURCE_KIND },
         }))
+        armNext()
       }
-      state.dispose = ctx.interval(deliver, intervalMs)
+
+      /**
+       * 排下一次网格 tick：下次 = max(上次派发 + interval, now)。
+       * 用 ctx.timeout 自排而非 ctx.interval 固定周期——补投会挪动相位，
+       * 固定周期会把补投之后的格子重新钉回旧网格。
+       */
+      function armNext() {
+        clearTimer()
+        const at = (state.lastDeliveredAt ?? Date.now()) + state.intervalMs
+        state.timer = ctx.timeout(() => {
+          state.timer = undefined
+          if (ctx.agents.get(agent.id) !== agent) {
+            stopLoop(id)
+            return
+          }
+          // 忙 = 本轮任务到点还没跑完：挂起本轮（不入队、不连发），
+          // 等 agent/status 回到 idle 时立刻补投一次。
+          if (agent.status !== 'idle') {
+            state.pending = true
+            return
+          }
+          dispatch()
+        }, Math.max(0, at - Date.now()))
+      }
+
+      function clearTimer() {
+        if (state.timer === undefined) return
+        state.timer()
+        state.timer = undefined
+      }
+
+      state.deliver = dispatch
+      state.dispose = clearTimer
+      // 先把网格排上（工具路径 agent 忙、首轮此刻投不出去时的兜底），
+      // 若此刻空闲则立即投第一轮（对齐 Claude Code /loop「立即开始 + 周期重复」）。
+      armNext()
+      if (ctx.agents.get(agent.id) === agent && agent.status === 'idle') dispatch()
       loops.set(id, state)
-      // 命令路径（用户敲 /loop）：agent 此刻空闲，立即投递第一轮；
-      // 工具路径（模型 turn 内 loop start）：agent 忙，deliver 会跳过，
-      // 本轮结束后由 interval 接管——两种场景都正确。
-      deliver()
       return state
     }
+
+    // 任务跑超 interval 时的补投：agent 一回到 idle 立刻派发挂起的那一轮。
+    // 状态迁移由 agent 的 setPhase 同步发出（dsh-agent-loop 的 agent/status），
+    // 因此这里跟着 agent 的结束时刻走，而不是等到下一个网格 tick。
+    ctx.on('agent/status', (payload) => {
+      if (payload?.status !== 'idle') return
+      const agent = payload.agent
+      if (agent === undefined) return
+      for (const state of [...loops.values()]) {
+        if (state.agent !== agent || !state.pending) continue
+        if (ctx.agents.get(agent.id) !== agent) continue
+        state.deliver()
+      }
+    })
 
     // agent 销毁时清理其全部循环，防止 Map 泄漏与对已死 agent 的定时投递。
     // payload 形如 { agent }（0.1 曾直接传 agent 对象）。

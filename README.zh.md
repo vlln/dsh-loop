@@ -86,6 +86,14 @@ loop action=status
 loop action=stop loop_id="loop-2"
 ```
 
+### 派发节奏
+
+下一轮排在 **上次派发 + 间隔** 的固定网格上——单轮耗时不会让网格漂移。
+
+到点时 agent 仍在跑（本轮耗时超过间隔），该 tick 被**挂起**：本轮一结束立刻**补投一次**。错过的多个 tick 不会连发——间隔 10 分钟、单轮跑了 30 分钟，结束时刻只触发一次，之后按新相位继续。agent 忙时不做任何派发。
+
+状态条倒计时读 `nextTickAt = lastDeliveredAt + intervalMs`，因此单轮超时期间显示 "now"（挂起的那一轮确实已到期）。
+
 循环活在当前 harness 进程，随进程退出消失（不跨重启持久化，与 Claude Code `/loop` 一致）。
 
 ## 开发
