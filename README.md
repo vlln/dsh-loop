@@ -88,6 +88,16 @@ loop action=status
 loop action=stop loop_id="loop-2"
 ```
 
+### Dispatch timing
+
+The next round is scheduled on the fixed grid **last dispatch + interval** — how long a round takes never shifts the grid.
+
+If the agent is still busy when a tick comes due (the round ran longer than the interval), that tick is **held**: as soon as the round finishes the held round is delivered **once**, immediately. Missed ticks are never replayed as a burst — a 10-minute loop whose round runs 30 minutes fires exactly once on completion, then resumes the grid from there. No dispatch happens while the agent is busy.
+
+The catch-up is driven by the agent's `agent/status` returning to idle. If that event is ever missed, the fallback check armed after a held tick (one interval later) still delivers, so a loop can never freeze permanently — at worst it is one interval late.
+
+The status bar's countdown reads `nextTickAt = lastDeliveredAt + intervalMs`, so while a round overruns it shows "now" (the held round is genuinely due).
+
 Loops live in the current harness process and disappear when the process exits (not persisted across restarts, consistent with Claude Code `/loop`).
 
 ## Development
